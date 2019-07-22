@@ -1,1 +1,2 @@
 # coco_format_convert
+只是一份把拥有xyhw信息的图片转换成coco格式的文件。
