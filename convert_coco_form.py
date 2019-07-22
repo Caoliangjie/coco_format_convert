@@ -19,7 +19,7 @@ video_list = open(os.path.join(root, 'videolist.txt'),'r')
 
 output_list = open('%s_list.txt' % args.mode,'w')
 
-obj_name = open('objects_en.txt','r')
+obj_name = open('objects.txt','r')
 obj_list = [line.rstrip() for line in obj_name]
 print(obj_list)
 train_category = []
