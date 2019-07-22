@@ -1,0 +1,7 @@
+truck
+shoe
+car
+table
+glasses
+flower
+horse
