@@ -17,9 +17,7 @@ root = os.path.join(args.data, args.mode)
 
 video_list = open(os.path.join(root, 'videolist.txt'),'r')
 
-output_list = open('%s_list.txt' % args.mode,'w')
-
-obj_name = open('objects.txt','r')
+obj_name = open('objects_en.txt','r')
 obj_list = [line.rstrip() for line in obj_name]
 print(obj_list)
 train_category = []
@@ -29,8 +27,9 @@ key_frame_count = 0
 #output_folder = '%s_label' % args.mode
 #if not os.path.exists(output_folder):
  #   os.makedirs(output_folder)
-with open('val.csv','w') as f1:
- for vid in video_list:
+if args.mode != 'test':
+  with open('{}.csv'.format(args.mode),'w') as f1:
+   for vid in video_list:
     label = json.load(open(os.path.join(root, 'label', 'sample_' + vid.rstrip().split('.')[0] + '.json'), 'r'))
     writer = csv.writer(f1)
     for shot in label['shots']:
@@ -44,4 +43,14 @@ with open('val.csv','w') as f1:
                         ymin = target['bbox']['y']
                         ymax = ymin + target['bbox']['height']
                         cls_id = obj_list[int(target['tag'])]
-                        writer.writerow([image_path,xmin,xmax,ymin,ymax,cls_id])
+                        writer.writerow([image_path,xmin,ymin,xmax,ymax,cls_id])
+elif args.mode == 'test':
+  with open('{}.csv'.format(args.mode),'w') as f1:
+   for vid in video_list:
+    label = json.load(open(os.path.join(root, 'label', 'sample_' + vid.rstrip().split('.')[0] + '.json'), 'r'))
+    writer = csv.writer(f1)
+    for shot in label['shots']:
+        keyframe = shot['keyframe']
+        image_path = os.path.join(args.keyframe_dir, args.mode, vid[:-1], '%05d.jpg'% keyframe)
+        if os.path.isfile(image_path):
+               writer.writerow([image_path])

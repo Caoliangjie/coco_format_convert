@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-'''
-@time: 2019/01/11 11:28
-spytensor
-'''
-
 import os
 import json
 import numpy as np
@@ -14,17 +9,17 @@ import os
 import shutil
 from IPython import embed
 from tqdm import tqdm
-#from sklearn.model_selection import train_test_split
-np.random.seed(41)
-
+import argparse
 #0为背景
+parser = argparse.ArgumentParser(description='convert object label')
+parser.add_argument('keyframe_dir', metavar='DIR',
+                    help='path to frame dir')
+parser.add_argument('--mode', type=str, choices=['train', 'val', 'test'])
+
+args = parser.parse_args()
 obj_name = open('objects_en.txt','r')
 obj_list = [line.rstrip() for line in obj_name]
-classname_to_id = {}
-for i in range(len(obj_list)):
-    classname_to_id.setdefault(obj_list[i],i)
-print(classname_to_id)
-
+print(obj_list)
 class Csv2CoCo:
 
     def __init__(self,image_dir,total_annos):
@@ -63,12 +58,35 @@ class Csv2CoCo:
         instance['annotations'] = self.annotations
         instance['categories'] = self.categories
         return instance
+    def to_coco_test(self, keys):
+        self._init_categories()
+        for key in keys:
+            self.images.append(self._image(key))
+            shapes = self.total_annos[key]
+            for shape in shapes:
+                bboxi = []
+                for cor in shape[:-1]:
+                    bboxi.append(int(cor))
+                #label = shape[-1]
+                #print('label',label)
+                #annotation = self._annotation(bboxi,label)
+                print('annotation',annotation)
+                #self.annotations.append(annotation)
+                #self.ann_id += 1
+            self.img_id += 1
+        instance = {}
+        instance['info'] = 'spytensor created'
+        instance['license'] = ['license']
+        instance['images'] = self.images
+        #instance['annotations'] = self.annotations
+        instance['categories'] = self.categories
+        return instance
 
     # 构建类别
     def _init_categories(self):
-        for k, v in classname_to_id.items():
+        for k in obj_list:#classname_to_id.items():
             category = {}
-            category['id'] = v
+            category['id'] = obj_list.index(k)
             category['name'] = k
             self.categories.append(category)
 
@@ -90,8 +108,8 @@ class Csv2CoCo:
         annotation = {}
         annotation['id'] = self.ann_id
         annotation['image_id'] = self.img_id
-        annotation['category_id'] = int(classname_to_id[label])
-        #annotation['segmentation'] = self._get_seg(points)
+        annotation['category_id'] = int(obj_list.index(label))
+        annotation['segmentation'] = self._get_seg(points)
         annotation['bbox'] = self._get_box(points)
         annotation['iscrowd'] = 0
         annotation['area'] = 1.0
@@ -118,8 +136,9 @@ class Csv2CoCo:
    
 
 if __name__ == '__main__':
-    csv_file = "train.csv"
-    image_dir = "/home/sda/videonet/train/image/train/"
+    csv_file = "{}.csv".format(args.mode)
+    image_dir = args.keyframe_dir#"/home/sda/videonet/train/image/train/"
+    #print('image_dir',image_dir)
     saved_coco_path = "./"
     # 整合csv格式标注文件
     total_csv_annotations = {}
@@ -132,39 +151,33 @@ if __name__ == '__main__':
             total_csv_annotations[key] = np.concatenate((total_csv_annotations[key],value),axis=0)
         else:
             total_csv_annotations[key] = value
-    for k,v in total_csv_annotations.items():
-        print(k,v)
     # 按照键值划分数据
     total_keys = list(total_csv_annotations.keys())
-    train_keys = total_keys
-    #val_keys = total_keys
-    #train_keys, val_keys = train_test_split(total_keys, test_size=0.2)
-    print("train_n:", len(train_keys))#, 'val_n:', len(val_keys))
+    in_keys = total_keys
+    print("{}_n:".format(args.mode), len(in_keys))#, 'val_n:', len(val_keys))
     # 创建必须的文件夹
     if not os.path.exists('%scoco/annotations/'%saved_coco_path):
         os.makedirs('%scoco/annotations/'%saved_coco_path)
-    if not os.path.exists('%scoco/images/train2014/'%saved_coco_path):
-        os.makedirs('%scoco/images/train2014/'%saved_coco_path)
-    if not os.path.exists('%scoco/images/val2014/'%saved_coco_path):
-        os.makedirs('%scoco/images/val2014/'%saved_coco_path)
+    if not os.path.exists('%scoco/train2017/'%saved_coco_path):
+        os.makedirs('%scoco/train2017/'%saved_coco_path)
+    if not os.path.exists('%scoco/val2017/'%saved_coco_path):
+        os.makedirs('%scoco/val2017/'%saved_coco_path)
+    if not os.path.exists('%scoco/test2017/'%saved_coco_path):
+        os.makedirs('%scoco/test2017/'%saved_coco_path)
     # 把训练集转化为COCO的json格式
-    for file in train_keys:
-      if not os.path.exists('{}coco/images/train2014/{}'.format(saved_coco_path,file.split('/')[0])):
-        print(file.split('/')[0])
-        os.makedirs('{}coco/images/train2014/{}'.format(saved_coco_path,file.split('/')[0]))
-        if not os.path.exists("{}coco/images/train2014/{}".format(saved_coco_path,file)):
-          shutil.copy(image_dir+file,"{}coco/images/train2014/{}".format(saved_coco_path,file))
-      elif os.path.exists('{}coco/images/train2014/{}'.format(saved_coco_path,file.split('/')[0])):
-        if not os.path.exists("{}coco/images/train2014/{}".format(saved_coco_path,file)):
-          shutil.copy(image_dir+file,"{}coco/images/train2014/{}".format(saved_coco_path,file))
-    l2c_train = Csv2CoCo(image_dir=image_dir,total_annos=total_csv_annotations)
-    train_instance = l2c_train.to_coco(train_keys)
-    l2c_train.save_coco_json(train_instance, '%scoco/annotations/instances_train2014.json'%saved_coco_path)
-    #for file in val_keys:
-     #   shutil.copy(image_dir+file,"%scoco/images/val2017/"%saved_coco_path)
-    # 把验证集转化为COCO的json格式
-    #l2c_val = Csv2CoCo(image_dir=image_dir,total_annos=total_csv_annotations)
-    #val_instance = l2c_val.to_coco(val_keys)
-    #l2c_val.save_coco_json(val_instance, '%scoco/annotations/instances_val2017.json'%saved_coco_path)
-
+    for file in in_keys:
+      if not os.path.exists('{}coco/{}2017/{}'.format(saved_coco_path,args.mode,file.split('/')[0])):
+        #print(file.split('/')[0])
+        os.makedirs('{}coco/{}2017/{}'.format(saved_coco_path,args.mode,file.split('/')[0]))
+        if not os.path.exists("{}coco/{}2017/{}".format(saved_coco_path,args.mode,file)):
+          shutil.copy(image_dir+file,"{}coco/{}2017/{}".format(saved_coco_path,args.mode,file))
+      elif os.path.exists('{}coco/{}2017/{}'.format(saved_coco_path,args.mode,file.split('/')[0])):
+        if not os.path.exists("{}coco/{}2017/{}".format(saved_coco_path,args.mode,file)):
+          shutil.copy(image_dir+file,"{}coco/{}2017/{}".format(saved_coco_path,args.mode,file))
+    l2c = Csv2CoCo(image_dir=image_dir,total_annos=total_csv_annotations)
+    if args.mode != 'test':
+      instance = l2c.to_coco(in_keys)
+    elif args.mode == 'test':
+      instance = l2c.to_coco_test(in_keys)
+    l2c.save_coco_json(instance, '{}coco/annotations/instances_{}2017.json'.format(saved_coco_path,args.mode))
 
